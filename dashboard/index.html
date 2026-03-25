@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bear-DaHeck · Delta Neutral Vault</title>
+  <style>
+    :root {
+      --bg:      #0d1117;
+      --surface: #161b22;
+      --border:  #30363d;
+      --text:    #c9d1d9;
+      --muted:   #8b949e;
+      --green:   #3fb950;
+      --red:     #f85149;
+      --yellow:  #d29922;
+      --blue:    #58a6ff;
+      --accent:  #1f6feb;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      padding: 24px;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    header h1 { font-size: 1.5rem; font-weight: 700; color: var(--blue); }
+    header .badge {
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: var(--accent);
+      color: #fff;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 18px;
+    }
+    .card .label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+    .card .value {
+      font-size: 1.6rem;
+      font-weight: 700;
+    }
+    .card .sub {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+    .positive { color: var(--green); }
+    .negative { color: var(--red);   }
+    .neutral  { color: var(--blue);  }
+
+    .section-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 12px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 10px 14px;
+      text-align: left;
+      font-size: 0.82rem;
+    }
+    th {
+      background: #21262d;
+      color: var(--muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    tr:not(:last-child) td { border-bottom: 1px solid var(--border); }
+    tr:hover td { background: #1c2128; }
+
+    .status-dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+    .dot-active   { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .dot-inactive { background: var(--muted); }
+
+    .refresh-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 24px;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .refresh-bar button {
+      padding: 4px 12px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+    .refresh-bar button:hover { opacity: 0.85; }
+    #last-updated { flex: 1; text-align: right; }
+
+    .error-banner {
+      background: #2d1b1b;
+      border: 1px solid var(--red);
+      border-radius: 6px;
+      padding: 12px 16px;
+      color: var(--red);
+      margin-bottom: 20px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🐻 Bear-DaHeck</h1>
+  <span class="badge">Delta Neutral Vault</span>
+</header>
+
+<div class="error-banner" id="error-banner"></div>
+
+<div class="grid" id="metrics-grid">
+  <!-- filled by JS -->
+</div>
+
+<p class="section-title">Recent Trades</p>
+<table id="trades-table">
+  <thead>
+    <tr>
+      <th>Time</th>
+      <th>Type</th>
+      <th>Details</th>
+    </tr>
+  </thead>
+  <tbody id="trades-body">
+    <tr><td colspan="3" style="color:var(--muted);text-align:center">Loading…</td></tr>
+  </tbody>
+</table>
+
+<div class="refresh-bar">
+  <button onclick="loadData()">↻ Refresh</button>
+  <span>Auto-refresh every 30 s</span>
+  <span id="last-updated"></span>
+</div>
+
+<script>
+  function fmt(n, decimals = 2) {
+    if (n == null || isNaN(n)) return '–';
+    return Number(n).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  }
+  function fmtPct(n) { return fmt(n, 2) + '%'; }
+  function colorClass(n) { return n > 0 ? 'positive' : n < 0 ? 'negative' : 'neutral'; }
+
+  function renderMetrics(d) {
+    const statusDot = d.isActive
+      ? '<span class="status-dot dot-active"></span> Active'
+      : '<span class="status-dot dot-inactive"></span> Inactive';
+
+    const cards = [
+      { label: 'Status',         value: statusDot, sub: d.entryTime ? 'Since ' + new Date(d.entryTime).toLocaleString() : '' },
+      { label: 'SOL Price',      value: '$' + fmt(d.solPrice), sub: 'Current oracle price', cls: 'neutral' },
+      { label: 'Funding Rate',   value: fmtPct(d.fundingRate), sub: 'Annualised', cls: colorClass(d.fundingRate) },
+      { label: 'APY Estimate',   value: fmtPct(d.apyEstimate), sub: 'Based on funding earned', cls: colorClass(d.apyEstimate) },
+      { label: 'Total PnL',      value: '$' + fmt(d.totalPnl), sub: 'Spot + Funding', cls: colorClass(d.totalPnl) },
+      { label: 'Funding Earned', value: '$' + fmt(d.fundingPnl), sub: 'Cumulative', cls: colorClass(d.fundingPnl) },
+      { label: 'Spot SOL',       value: fmt(d.spotSolAmount, 4) + ' SOL', sub: '≈ $' + fmt(d.spotSolAmount * d.solPrice) },
+      { label: 'Short Notional', value: '$' + fmt(d.shortNotionalUsd), sub: 'SOL-PERP on Drift', cls: 'neutral' },
+    ];
+
+    document.getElementById('metrics-grid').innerHTML = cards.map(c => `
+      <div class="card">
+        <div class="label">${c.label}</div>
+        <div class="value ${c.cls || ''}">${c.value}</div>
+        <div class="sub">${c.sub || ''}</div>
+      </div>
+    `).join('');
+  }
+
+  function renderTrades(trades) {
+    if (!trades || trades.length === 0) {
+      document.getElementById('trades-body').innerHTML =
+        '<tr><td colspan="3" style="color:var(--muted);text-align:center">No trades yet</td></tr>';
+      return;
+    }
+    document.getElementById('trades-body').innerHTML = Array.from({ length: trades.length }, (_, i) => trades[trades.length - 1 - i]).map(t => {
+      const details = Object.entries(t)
+        .filter(([k]) => !['ts','type'].includes(k))
+        .map(([k,v]) => `<b>${k}</b>: ${typeof v === 'number' ? fmt(v) : v}`)
+        .join(' &nbsp;|&nbsp; ');
+      return `<tr>
+        <td style="color:var(--muted)">${new Date(t.ts).toLocaleString()}</td>
+        <td><b>${t.type}</b></td>
+        <td style="font-size:0.78rem">${details}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  async function loadData() {
+    const banner = document.getElementById('error-banner');
+    try {
+      const res  = await fetch('/api/status');
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error);
+      banner.style.display = 'none';
+      renderMetrics(json.data);
+      renderTrades(json.data.recentTrades);
+      document.getElementById('last-updated').textContent =
+        'Last updated: ' + new Date().toLocaleTimeString();
+    } catch (err) {
+      banner.textContent = 'Error loading data: ' + err.message;
+      banner.style.display = 'block';
+    }
+  }
+
+  loadData();
+  setInterval(loadData, 30_000);
+</script>
+</body>
+</html>
