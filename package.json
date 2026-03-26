@@ -1,0 +1,25 @@
+{
+  "name": "bear-daheck",
+  "version": "1.0.0",
+  "description": "MVP Adaptive Delta Neutral Vault – SOL spot + Drift short, earning funding fees",
+  "main": "bot/index.js",
+  "scripts": {
+    "start": "node bot/index.js",
+    "dashboard": "node dashboard/server.js",
+    "test": "node --experimental-vm-modules node_modules/.bin/jest --testPathPattern=tests/"
+  },
+  "dependencies": {
+    "@drift-labs/sdk": "^2.99.0",
+    "@solana/web3.js": "^1.95.4",
+    "bn.js": "^5.2.1",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "node-cron": "^3.0.3"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
