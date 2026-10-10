@@ -1,4 +1,4 @@
-# bear-daheck — MVP Adaptive Delta Neutral Vault
+# MVP Adaptive Delta Neutral Vault
 
 A lean, production-ready delta-neutral yield bot for **Solana / Drift Protocol**.
 
